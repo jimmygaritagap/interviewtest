@@ -5,32 +5,36 @@ require 'logger'
 class UrlStatusChecker
 
   def initialize()
-      set_logger( [Dir.pwd, 'status_output.csv'].join('/') )
+      @log = get_logger( [Dir.pwd, 'status_output.csv'].join('/') )
    end
 
   def curl_test_multi_url(urls_array)
-    curl_multi = Curl::Multi.new
-    urls_array.each_with_index do |index, url|
-      curl_entry = Curl::Easy.new(url) do|curl|
+    responses = {}
+    m = Curl::Multi.new
+    urls_array.each do |url|
+      responses[url] = ""
+      c = Curl::Easy.new(url) do|curl|
         curl.follow_location = false
         curl.on_complete {|easy| @log.debug "#{easy.response_code}; #{url}" }
       end
-      curl_multi.add(curl_entry)
+      m.add(c)
     end
-    return curl_multi.perform do end;
+    m.perform do end;
   end
 
   private
 
   def get_logger(output_file)
-    @log = Logger.new(output_file)
-    @log.formatter = proc do |severity, datetime, progname, msg|
+    begin
+      log = Logger.new(output_file)
+      log.formatter = proc do |severity, datetime, progname, msg|
       "#{datetime.strftime('%Y-%m-%d %H:%M:%S:%L %z')}; #{msg}\n"
     end
-    return @log
-  rescue Exception => e
-    puts "Unable to create #{output_file}. execution ended..."
-    return false
+    log
+    rescue Exception => e
+      puts "Unable to create #{output_file}. execution ended..."
+      false
+    end
   end
 
 end
@@ -46,6 +50,4 @@ time = Benchmark.measure do
   checker.curl_test_multi_url(urls_array)
 end
 puts "Total execution: #{time.real}"
-
-
 
